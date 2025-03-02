@@ -1,23 +1,27 @@
 #[global_allocator]
-static ALLOCATOR: DummyAllocator = DummyAllocator;
+static ALLOCATOR: BumpAllocator = BumpAllocator;
 
 use alloc::alloc::{GlobalAlloc, Layout};
-use core::ptr::null_mut;
 use core::fmt::Write;
 
 use crate::serial;
-pub struct DummyAllocator;
 
 pub static mut HEAP_START: usize = 0x0;
-pub static mut OFFSET: usize = 0x0;
 pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
 
-unsafe impl GlobalAlloc for DummyAllocator {
-    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-        unsafe {
-            // TODO: Implement me!
-            null_mut()
+pub struct BumpAllocator;
+
+unsafe impl GlobalAlloc for BumpAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        let bump_ptr = HEAP_START;
+        let new_heap_start = HEAP_START + layout.size();
+
+        if new_heap_start > HEAP_START + HEAP_SIZE {
+            panic!("Out of memory!");
         }
+
+        HEAP_START = new_heap_start;
+        bump_ptr as *mut u8
     }
 
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
@@ -27,6 +31,6 @@ unsafe impl GlobalAlloc for DummyAllocator {
 
 pub fn init_heap(offset: usize) {
     unsafe {
-        // TODO: Implement me!
+        HEAP_START = offset;
     }
 }
