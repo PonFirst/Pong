@@ -5,6 +5,7 @@ use noto_sans_mono_bitmap::{FontWeight, get_raster, RasterizedChar};
 use bootloader_api::info::{FrameBuffer, FrameBufferInfo, PixelFormat};
 use noto_sans_mono_bitmap::RasterHeight::Size16;
 use kernel::RacyCell;
+use crate::{PADDLE_LEFT, PADDLE_RIGHT, BALL_X, BALL_Y, BALL_SIZE};
 
 static WRITER: RacyCell<Option<ScreenWriter>> = RacyCell::new(None);
 pub struct Writer;
@@ -37,6 +38,8 @@ pub struct ScreenWriter {
     info: FrameBufferInfo,
     x_pos: usize,
     y_pos: usize,
+    previous_paddle_left_pos: usize,   // Track previous position of the left paddle
+    previous_paddle_right_pos: usize,  // Track previous position of the right paddle
 }
 
 impl ScreenWriter {
@@ -46,6 +49,8 @@ impl ScreenWriter {
             info,
             x_pos: 0,
             y_pos: 0,
+            previous_paddle_left_pos: 0,  // Initializing previous paddle positions
+            previous_paddle_right_pos: 0, // Initializing previous paddle positions
         };
         logger.clear();
         logger
@@ -71,7 +76,7 @@ impl ScreenWriter {
         self.info.width.into()
     }
 
-    fn height(&self) -> usize {
+    pub fn height(&self) -> usize {
         self.info.height.into()
     }
 
@@ -141,6 +146,84 @@ impl ScreenWriter {
         self.framebuffer[byte_offset..(byte_offset + usize::from(bytes_per_pixel))]
             .copy_from_slice(&color[..usize::from(bytes_per_pixel)]);
         let _ = unsafe { ptr::read_volatile(&self.framebuffer[byte_offset]) };
+    }
+
+    pub fn draw_pong_pad(&mut self, x_pos: usize, y_pos: usize, height: usize, width: usize) {
+        for y in y_pos..(y_pos + height) {
+            for x in x_pos..(x_pos + width) {
+                self.draw_pixel(x, y, 255, 255, 255); // White color for the pad
+            }
+        }
+    }
+
+    pub fn draw_pong_game(&mut self) {
+        // Define the size of the pads
+        let paddle_width = 10;
+        let paddle_height = 60;
+
+        // Define the y-position for the pads (e.g., centered vertically on the screen)
+        let paddle_left_pos = unsafe { crate::PADDLE_LEFT };
+        let paddle_right_pos = unsafe { crate::PADDLE_RIGHT };
+
+        let paddle_left_x = 10;
+        let paddle_right_x = self.width() - paddle_width - 10;
+
+        unsafe {
+            // Only clear and redraw if the positions have changed
+            if paddle_left_pos != self.previous_paddle_left_pos {
+                self.clear_pong_pad(paddle_left_x, self.previous_paddle_left_pos, paddle_height, paddle_width);
+                self.draw_pong_pad(paddle_left_x, paddle_left_pos, paddle_height, paddle_width);
+                self.previous_paddle_left_pos = paddle_left_pos;
+            }
+            
+            if paddle_right_pos != self.previous_paddle_right_pos {
+                self.clear_pong_pad(paddle_right_x, self.previous_paddle_right_pos, paddle_height, paddle_width);
+                self.draw_pong_pad(paddle_right_x, paddle_right_pos, paddle_height, paddle_width);
+                self.previous_paddle_right_pos = paddle_right_pos;
+            }
+            
+            // Draw the ball at its current position
+            self.clear_ball(BALL_X, BALL_Y, BALL_SIZE);
+            for y in BALL_Y..(BALL_Y + BALL_SIZE) {
+                for x in BALL_X..(BALL_X + BALL_SIZE) {
+                    if x < self.width() && y < self.height() {
+                        self.draw_pixel(x, y, 255, 255, 0); // Yellow ball
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn draw_mid_line(&mut self) {
+        let mid_line_width = 5;
+        let mid_line_height = 10;
+        let total_lines = 20;
+        for i in 0..total_lines {
+            let mid_line_x = (self.width() - mid_line_width) / 2;
+            let mid_line_y = i * (self.height() / total_lines);
+            for y in mid_line_y..(mid_line_y + mid_line_height) {
+                for x in mid_line_x..(mid_line_x + mid_line_width) {
+                    self.draw_pixel(x, y, 255, 255, 255); // White color for the mid line
+                }
+            }
+        }
+    }
+
+
+    pub fn clear_pong_pad(&mut self, x_pos: usize, y_pos: usize, height: usize, width: usize) {
+        for y in y_pos..(y_pos + height) {
+            for x in x_pos..(x_pos + width) {
+                self.draw_pixel(x, y, 0, 0, 0); // Clear with black
+            }
+        }
+    }
+
+    pub fn clear_ball(&mut self, ball_x: usize, ball_y: usize, ball_size: usize) {
+        for y in ball_y..(ball_y + ball_size) {
+            for x in ball_x..(ball_x + ball_size) {
+                self.draw_pixel(x, y, 0, 0, 0); // Clear with black
+            }
+        }
     }
 
 }
