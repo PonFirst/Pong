@@ -27,9 +27,12 @@ use x86_64::registers::control::Cr3;
 
 pub static mut PADDLE_LEFT: usize = 100;
 pub static mut PADDLE_RIGHT: usize = 100;
+pub const PADDLE_WIDTH: usize = 10;
+pub const PADDLE_HEIGHT: usize = 60;
 pub static mut BALL_X: usize = 200;
 pub static mut BALL_Y: usize = 150;
 pub const BALL_SIZE: usize = 8;
+const BALL_SPEED: usize = 5;
 
 const BOOTLOADER_CONFIG: BootloaderConfig = {
     let mut config = BootloaderConfig::new_default();
@@ -126,30 +129,51 @@ fn start() {
 }
 
 fn tick() {
+    unsafe {
+        screenwriter().clear_ball(BALL_X, BALL_Y, BALL_SIZE);
+    }
+    // Move the ball horizontally
+    unsafe {
+        BALL_X += BALL_SPEED;
+
+        if BALL_X + BALL_SIZE >= screenwriter().width() || BALL_X <= 0 {
+            BALL_X = if BALL_X + BALL_SIZE >= screenwriter().width() {
+                screenwriter().width() - BALL_SIZE
+            } else {
+                0
+            };
+        }
+    }
+
+    // Draw the ball at the new position
+    unsafe {
+        screenwriter().draw_ball(BALL_X, BALL_Y, BALL_SIZE);
+    }
+
     screenwriter().draw_pong_game();
 }
 
 fn key(key: DecodedKey) {
     unsafe {
         match key {
-            DecodedKey::Unicode(c) if c == 'W' || c == 'w' =>{
-                if PADDLE_LEFT > 5 {
-                    PADDLE_LEFT -= 5;
+            DecodedKey::Unicode(c) if c == 'W' || c == 'w' => {
+                if PADDLE_LEFT > 25 {
+                    PADDLE_LEFT -= 25;
                 }
             }
             DecodedKey::Unicode(c) if c == 'S' || c == 's' => {
-                if PADDLE_LEFT + 60 < screenwriter().height() {
-                    PADDLE_LEFT += 5;
+                if PADDLE_LEFT + 80 < screenwriter().height() {
+                    PADDLE_LEFT += 25;
                 }
             }
             DecodedKey::RawKey(KeyCode::ArrowUp) => {
-                if PADDLE_RIGHT > 5 {
-                    PADDLE_RIGHT -= 5;
+                if PADDLE_RIGHT > 25 {
+                    PADDLE_RIGHT -= 25;
                 }
             }
             DecodedKey::RawKey(KeyCode::ArrowDown) => {
-                if PADDLE_RIGHT + 60 < screenwriter().height() {
-                    PADDLE_RIGHT += 5;
+                if PADDLE_RIGHT + 80 < screenwriter().height() {
+                    PADDLE_RIGHT += 25;
                 }
             }
             _ => {}

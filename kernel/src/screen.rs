@@ -5,7 +5,6 @@ use noto_sans_mono_bitmap::{FontWeight, get_raster, RasterizedChar};
 use bootloader_api::info::{FrameBuffer, FrameBufferInfo, PixelFormat};
 use noto_sans_mono_bitmap::RasterHeight::Size16;
 use kernel::RacyCell;
-use crate::{PADDLE_LEFT, PADDLE_RIGHT, BALL_X, BALL_Y, BALL_SIZE};
 
 static WRITER: RacyCell<Option<ScreenWriter>> = RacyCell::new(None);
 pub struct Writer;
@@ -72,7 +71,7 @@ impl ScreenWriter {
         self.framebuffer.fill(0);
     }
 
-    fn width(&self) -> usize {
+    pub fn width(&self) -> usize {
         self.info.width.into()
     }
 
@@ -161,7 +160,6 @@ impl ScreenWriter {
         let paddle_width = 10;
         let paddle_height = 60;
 
-        // Define the y-position for the pads (e.g., centered vertically on the screen)
         let paddle_left_pos = unsafe { crate::PADDLE_LEFT };
         let paddle_right_pos = unsafe { crate::PADDLE_RIGHT };
 
@@ -182,13 +180,16 @@ impl ScreenWriter {
                 self.previous_paddle_right_pos = paddle_right_pos;
             }
             
-            // Draw the ball at its current position
-            self.clear_ball(BALL_X, BALL_Y, BALL_SIZE);
-            for y in BALL_Y..(BALL_Y + BALL_SIZE) {
-                for x in BALL_X..(BALL_X + BALL_SIZE) {
-                    if x < self.width() && y < self.height() {
-                        self.draw_pixel(x, y, 255, 255, 0); // Yellow ball
-                    }
+        }
+    }
+
+    pub fn draw_ball(&mut self, x: usize, y: usize, size: usize) {
+        for dx in 0..size {
+            for dy in 0..size {
+                let px = x + dx;
+                let py = y + dy;
+                if px < self.width() && py < self.height() {
+                    self.draw_pixel(px, py, 0xff, 0xff, 0x00);
                 }
             }
         }
