@@ -32,7 +32,8 @@ pub const PADDLE_HEIGHT: usize = 60;
 pub static mut BALL_X: usize = 200;
 pub static mut BALL_Y: usize = 150;
 pub const BALL_SIZE: usize = 8;
-const BALL_SPEED: usize = 5;
+pub static mut BALL_SPEED_X: isize = 5;  
+pub static mut BALL_SPEED_Y: isize = 3;  
 
 const BOOTLOADER_CONFIG: BootloaderConfig = {
     let mut config = BootloaderConfig::new_default();
@@ -130,27 +131,65 @@ fn start() {
 
 fn tick() {
     unsafe {
+        // Clear the ball's old position
         screenwriter().clear_ball(BALL_X, BALL_Y, BALL_SIZE);
-    }
-    // Move the ball horizontally
-    unsafe {
-        BALL_X += BALL_SPEED;
 
-        if BALL_X + BALL_SIZE >= screenwriter().width() || BALL_X <= 0 {
-            BALL_X = if BALL_X + BALL_SIZE >= screenwriter().width() {
-                screenwriter().width() - BALL_SIZE
+        // Calculate new ball position
+        let new_ball_x = (BALL_X as isize) + BALL_SPEED_X;
+        let new_ball_y = (BALL_Y as isize) + BALL_SPEED_Y;
+
+        // Check for scoring conditions
+        if new_ball_x < 0 {
+            // Right player scores
+            BALL_X = screenwriter().width() / 2;
+            BALL_Y = screenwriter().height() / 2;
+            BALL_SPEED_X = 5;
+            BALL_SPEED_Y = 3;
+            write!(screenwriter(), "Score! Right").unwrap();
+        } else if new_ball_x + BALL_SIZE as isize > screenwriter().width() as isize {
+            // Left player scores
+            BALL_X = screenwriter().width() / 2;
+            BALL_Y = screenwriter().height() / 2;
+            BALL_SPEED_X = -5;
+            BALL_SPEED_Y = -3;
+            write!(screenwriter(), "Score! Left").unwrap();
+        } else {
+            // Update ball position horizontally
+            BALL_X = new_ball_x as usize;
+
+            // Update ball position vertically with improved boundary checks
+            if new_ball_y < 0 {
+                BALL_Y = 0;                    // Clamp to top of screen
+                BALL_SPEED_Y = -BALL_SPEED_Y;  // Bounce downward
+            } else if new_ball_y + BALL_SIZE as isize > screenwriter().height() as isize {
+                BALL_Y = (screenwriter().height() - BALL_SIZE) as usize;  // Clamp to bottom
+                BALL_SPEED_Y = -BALL_SPEED_Y;                             // Bounce upward
             } else {
-                0
-            };
+                BALL_Y = new_ball_y as usize;  // Normal movement within bounds
+            }
+
+            // Right paddle collision
+            if BALL_SPEED_X > 0 &&
+               new_ball_x + BALL_SIZE as isize >= screenwriter().width() as isize - PADDLE_WIDTH as isize &&
+               new_ball_y + BALL_SIZE as isize > PADDLE_RIGHT as isize &&
+               new_ball_y < (PADDLE_RIGHT + PADDLE_HEIGHT) as isize
+            {
+                BALL_SPEED_X = -BALL_SPEED_X; // Bounce left
+            }
+            // Left paddle collision
+            else if BALL_SPEED_X < 0 &&
+                    new_ball_x <= PADDLE_WIDTH as isize &&
+                    new_ball_y + BALL_SIZE as isize > PADDLE_LEFT as isize &&
+                    new_ball_y < (PADDLE_LEFT + PADDLE_HEIGHT) as isize
+            {
+                BALL_SPEED_X = -BALL_SPEED_X; // Bounce right
+            }
         }
-    }
 
-    // Draw the ball at the new position
-    unsafe {
+        // Draw the ball at the new position
         screenwriter().draw_ball(BALL_X, BALL_Y, BALL_SIZE);
+        screenwriter().draw_pong_game();
     }
-
-    screenwriter().draw_pong_game();
 }
 
 fn key(key: DecodedKey) {
