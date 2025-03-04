@@ -147,6 +147,11 @@ impl ScreenWriter {
         let _ = unsafe { ptr::read_volatile(&self.framebuffer[byte_offset]) };
     }
 
+    pub fn set_position(&mut self, x: usize, y: usize) {
+        self.x_pos = x;
+        self.y_pos = y;
+    }
+
     pub fn draw_pong_pad(&mut self, x_pos: usize, y_pos: usize, height: usize, width: usize) {
         for y in y_pos..(y_pos + height) {
             for x in x_pos..(x_pos + width) {

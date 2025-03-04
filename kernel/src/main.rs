@@ -19,6 +19,7 @@ use bootloader_api::info::MemoryRegionKind;
 use bootloader_api::{BootInfo, BootloaderConfig, entry_point};
 use core::fmt::Write;
 use core::slice;
+use core::sync::atomic::{AtomicI32, Ordering};
 use kernel::{HandlerTable, serial};
 use pc_keyboard::DecodedKey;
 use pc_keyboard::KeyCode;
@@ -32,8 +33,10 @@ pub const PADDLE_HEIGHT: usize = 60;
 pub static mut BALL_X: usize = 200;
 pub static mut BALL_Y: usize = 150;
 pub const BALL_SIZE: usize = 8;
-pub static mut BALL_SPEED_X: isize = 5;  
-pub static mut BALL_SPEED_Y: isize = 3;  
+pub static mut BALL_SPEED_X: isize = 5;
+pub static mut BALL_SPEED_Y: isize = 3;
+static LEFT_SCORE: AtomicI32 = AtomicI32::new(0);
+static RIGHT_SCORE: AtomicI32 = AtomicI32::new(0);
 
 const BOOTLOADER_CONFIG: BootloaderConfig = {
     let mut config = BootloaderConfig::new_default();
@@ -141,46 +144,51 @@ fn tick() {
         // Check for scoring conditions
         if new_ball_x < 0 {
             // Right player scores
+            let right_score = RIGHT_SCORE.fetch_add(1, Ordering::Relaxed);
+            screenwriter().set_position(screenwriter().width() - 100, 10);
+            write!(screenwriter(), "Right: {}", right_score + 1).unwrap();
             BALL_X = screenwriter().width() / 2;
             BALL_Y = screenwriter().height() / 2;
             BALL_SPEED_X = 5;
             BALL_SPEED_Y = 3;
-            write!(screenwriter(), "Score! Right").unwrap();
         } else if new_ball_x + BALL_SIZE as isize > screenwriter().width() as isize {
             // Left player scores
+            let left_score = LEFT_SCORE.fetch_add(1, Ordering::Relaxed);
+            screenwriter().set_position(10, 10);
+            write!(screenwriter(), "Left: {}", left_score + 1).unwrap();
             BALL_X = screenwriter().width() / 2;
             BALL_Y = screenwriter().height() / 2;
             BALL_SPEED_X = -5;
             BALL_SPEED_Y = -3;
-            write!(screenwriter(), "Score! Left").unwrap();
         } else {
             // Update ball position horizontally
             BALL_X = new_ball_x as usize;
 
             // Update ball position vertically with improved boundary checks
             if new_ball_y < 0 {
-                BALL_Y = 0;                    // Clamp to top of screen
-                BALL_SPEED_Y = -BALL_SPEED_Y;  // Bounce downward
+                BALL_Y = 0; // Clamp to top of screen
+                BALL_SPEED_Y = -BALL_SPEED_Y; // Bounce downward
             } else if new_ball_y + BALL_SIZE as isize > screenwriter().height() as isize {
-                BALL_Y = (screenwriter().height() - BALL_SIZE) as usize;  // Clamp to bottom
-                BALL_SPEED_Y = -BALL_SPEED_Y;                             // Bounce upward
+                BALL_Y = (screenwriter().height() - BALL_SIZE) as usize; // Clamp to bottom
+                BALL_SPEED_Y = -BALL_SPEED_Y; // Bounce upward
             } else {
-                BALL_Y = new_ball_y as usize;  // Normal movement within bounds
+                BALL_Y = new_ball_y as usize; // Normal movement within bounds
             }
 
             // Right paddle collision
-            if BALL_SPEED_X > 0 &&
-               new_ball_x + BALL_SIZE as isize >= screenwriter().width() as isize - PADDLE_WIDTH as isize &&
-               new_ball_y + BALL_SIZE as isize > PADDLE_RIGHT as isize &&
-               new_ball_y < (PADDLE_RIGHT + PADDLE_HEIGHT) as isize
+            if BALL_SPEED_X > 0
+                && new_ball_x + BALL_SIZE as isize
+                    >= screenwriter().width() as isize - PADDLE_WIDTH as isize
+                && new_ball_y + BALL_SIZE as isize > PADDLE_RIGHT as isize
+                && new_ball_y < (PADDLE_RIGHT + PADDLE_HEIGHT) as isize
             {
                 BALL_SPEED_X = -BALL_SPEED_X; // Bounce left
             }
             // Left paddle collision
-            else if BALL_SPEED_X < 0 &&
-                    new_ball_x <= PADDLE_WIDTH as isize &&
-                    new_ball_y + BALL_SIZE as isize > PADDLE_LEFT as isize &&
-                    new_ball_y < (PADDLE_LEFT + PADDLE_HEIGHT) as isize
+            else if BALL_SPEED_X < 0
+                && new_ball_x <= PADDLE_WIDTH as isize
+                && new_ball_y + BALL_SIZE as isize > PADDLE_LEFT as isize
+                && new_ball_y < (PADDLE_LEFT + PADDLE_HEIGHT) as isize
             {
                 BALL_SPEED_X = -BALL_SPEED_X; // Bounce right
             }
@@ -189,6 +197,9 @@ fn tick() {
         // Draw the ball at the new position
         screenwriter().draw_ball(BALL_X, BALL_Y, BALL_SIZE);
         screenwriter().draw_pong_game();
+
+        // Redraw Mid Line
+        screenwriter().draw_mid_line();
     }
 }
 
