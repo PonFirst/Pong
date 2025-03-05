@@ -166,7 +166,7 @@ fn tick() {
 
             // Update ball position vertically with improved boundary checks
             if new_ball_y < 0 {
-                BALL_Y = 0; // Clamp to top of screen
+                BALL_Y = 0;
                 BALL_SPEED_Y = -BALL_SPEED_Y; // Bounce downward
             } else if new_ball_y + BALL_SIZE as isize > screenwriter().height() as isize {
                 BALL_Y = (screenwriter().height() - BALL_SIZE) as usize; // Clamp to bottom
@@ -177,7 +177,7 @@ fn tick() {
 
             // Right paddle collision
             if BALL_SPEED_X > 0
-                && new_ball_x + BALL_SIZE as isize
+                && new_ball_x + (BALL_SIZE + 15) as isize
                     >= screenwriter().width() as isize - PADDLE_WIDTH as isize
                 && new_ball_y + BALL_SIZE as isize > PADDLE_RIGHT as isize
                 && new_ball_y < (PADDLE_RIGHT + PADDLE_HEIGHT) as isize
@@ -186,7 +186,7 @@ fn tick() {
             }
             // Left paddle collision
             else if BALL_SPEED_X < 0
-                && new_ball_x <= PADDLE_WIDTH as isize
+                && new_ball_x <= (PADDLE_WIDTH + 15) as isize
                 && new_ball_y + BALL_SIZE as isize > PADDLE_LEFT as isize
                 && new_ball_y < (PADDLE_LEFT + PADDLE_HEIGHT) as isize
             {

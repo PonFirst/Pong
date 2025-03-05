@@ -220,7 +220,7 @@ unsafe fn init_timer(lapic_pointer: *mut u32) {
         tdcr.write_volatile(0x3); // Divide by 16 mode
 
         let ticr = lapic_pointer.offset(APICOffset::Ticr as isize / 4);
-        ticr.write_volatile(0x020_0000); // An arbitrary value for the initial value of the timer
+        ticr.write_volatile(0x010_0000); // An arbitrary value for the initial value of the timer
     }
 }
 
