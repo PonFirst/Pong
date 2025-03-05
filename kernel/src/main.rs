@@ -165,16 +165,18 @@ fn tick() {
         let new_ball_x = (BALL_X as isize) + BALL_SPEED_X;
         let new_ball_y = (BALL_Y as isize) + BALL_SPEED_Y;
 
+        // Score display positions
+        let left_score_x = screenwriter().width() / 4;
+        let right_score_x = 3 * screenwriter().width() / 4;
+        let score_y = 10;
+        let score_size = 30;
+
         // Check for scoring conditions
         if new_ball_x < 0 {
             // Right player scores
             let right_score = RIGHT_SCORE.fetch_add(1, Ordering::Relaxed) + 1; // New score
-            let score_x = 3 * screenwriter().width() / 4;
-            let score_y = 10;
-            let size = 30;
-
-            screenwriter().clear_score(score_x, score_y, size);
-            draw_score(right_score, score_x, score_y, size);
+            screenwriter().clear_score(right_score_x, score_y, score_size);
+            draw_score(right_score, right_score_x, score_y, score_size);
             BALL_X = screenwriter().width() / 2;
             BALL_Y = screenwriter().height() / 2;
             BALL_SPEED_X = 5;
@@ -185,12 +187,8 @@ fn tick() {
         } else if new_ball_x + BALL_SIZE as isize > screenwriter().width() as isize {
             // Left player scores
             let left_score = LEFT_SCORE.fetch_add(1, Ordering::Relaxed) + 1; // New score
-            let score_x = screenwriter().width() / 4;
-            let score_y = 10;
-            let size = 30;
-
-            screenwriter().clear_score(score_x, score_y, size);
-            draw_score(left_score, score_x, score_y, size);
+            screenwriter().clear_score(left_score_x, score_y, score_size);
+            draw_score(left_score, left_score_x, score_y, score_size);
             BALL_X = screenwriter().width() / 2;
             BALL_Y = screenwriter().height() / 2;
             BALL_SPEED_X = -5;
@@ -232,12 +230,19 @@ fn tick() {
 
         // Draw the ball at the new position
         screenwriter().draw_ball(BALL_X, BALL_Y, BALL_SIZE);
-        screenwriter().draw_pong_game();
 
-        // Redraw Mid Line
+        // Redraw game elements
+        screenwriter().draw_pong_game();
         screenwriter().draw_mid_line();
+
+        // Always draw the current scores
+        screenwriter().clear_score(left_score_x, score_y, score_size);
+        draw_score(LEFT_SCORE.load(Ordering::Relaxed), left_score_x, score_y, score_size);
+        screenwriter().clear_score(right_score_x, score_y, score_size);
+        draw_score(RIGHT_SCORE.load(Ordering::Relaxed), right_score_x, score_y, score_size);
     }
 }
+
 
 fn key(key: DecodedKey) {
     unsafe {
