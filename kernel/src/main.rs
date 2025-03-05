@@ -37,6 +37,7 @@ pub static mut BALL_SPEED_X: isize = 5;
 pub static mut BALL_SPEED_Y: isize = 3;
 static LEFT_SCORE: AtomicI32 = AtomicI32::new(0);
 static RIGHT_SCORE: AtomicI32 = AtomicI32::new(0);
+static GAME_STATE: AtomicI32 = AtomicI32::new(0); // 0: ongoing, 1: ended
 
 const BOOTLOADER_CONFIG: BootloaderConfig = {
     let mut config = BootloaderConfig::new_default();
@@ -58,11 +59,6 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     let frame_info = boot_info.framebuffer.as_ref().unwrap().info();
     let framebuffer = boot_info.framebuffer.as_mut().unwrap();
     screen::init(framebuffer);
-    for x in 0..frame_info.width {
-        screenwriter().draw_pixel(x, frame_info.height - 15, 0xff, 0, 0);
-        screenwriter().draw_pixel(x, frame_info.height - 10, 0, 0xff, 0);
-        screenwriter().draw_pixel(x, frame_info.height - 5, 0, 0, 0xff);
-    }
 
     for r in boot_info.memory_regions.iter() {
         writeln!(
@@ -127,13 +123,41 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         .start(lapic_ptr)
 }
 
+fn draw_score(score: i32, x: usize, y: usize, size: usize) {
+    match score {
+        0 => screenwriter().draw_zero(x, y, size),
+        1 => screenwriter().draw_one(x, y, size),
+        2 => screenwriter().draw_two(x, y, size),
+        3 => screenwriter().draw_three(x, y, size),
+        _ => {}
+    }
+}
+
 fn start() {
     screenwriter().draw_pong_game();
     screenwriter().draw_mid_line();
+    draw_score(0, screenwriter().width() / 4, 10, 30); // Left player
+    draw_score(0, 3 * screenwriter().width() / 4, 10, 30); // Right player
 }
 
 fn tick() {
     unsafe {
+        if GAME_STATE.load(Ordering::Relaxed) == 1 {
+            // Game has ended, display win message
+            let message = if LEFT_SCORE.load(Ordering::Relaxed) >= 3 {
+                "Left Player Wins! Press 'r' to restart"
+            } else {
+                "Right Player Wins! Press 'r' to restart"
+            };
+            let char_width = 8;
+            let text_width = message.len() * char_width;
+            let start_x = (screenwriter().width() / 2) - (text_width / 2); // Center horizontally
+            let start_y = screenwriter().height() / 2; // Center vertically
+            screenwriter().set_position(start_x, start_y);
+            write!(screenwriter(), "{}", message).unwrap();
+            return;
+        }
+
         // Clear the ball's old position
         screenwriter().clear_ball(BALL_X, BALL_Y, BALL_SIZE);
 
@@ -144,27 +168,39 @@ fn tick() {
         // Check for scoring conditions
         if new_ball_x < 0 {
             // Right player scores
-            let right_score = RIGHT_SCORE.fetch_add(1, Ordering::Relaxed);
-            screenwriter().set_position(screenwriter().width() - 100, 10);
-            write!(screenwriter(), "Right: {}", right_score + 1).unwrap();
+            let right_score = RIGHT_SCORE.fetch_add(1, Ordering::Relaxed) + 1; // New score
+            let score_x = 3 * screenwriter().width() / 4;
+            let score_y = 10;
+            let size = 30;
+
+            screenwriter().clear_score(score_x, score_y, size);
+            draw_score(right_score, score_x, score_y, size);
             BALL_X = screenwriter().width() / 2;
             BALL_Y = screenwriter().height() / 2;
             BALL_SPEED_X = 5;
             BALL_SPEED_Y = 3;
+            if right_score >= 3 {
+                GAME_STATE.store(1, Ordering::Relaxed);
+            }
         } else if new_ball_x + BALL_SIZE as isize > screenwriter().width() as isize {
             // Left player scores
-            let left_score = LEFT_SCORE.fetch_add(1, Ordering::Relaxed);
-            screenwriter().set_position(10, 10);
-            write!(screenwriter(), "Left: {}", left_score + 1).unwrap();
+            let left_score = LEFT_SCORE.fetch_add(1, Ordering::Relaxed) + 1; // New score
+            let score_x = screenwriter().width() / 4;
+            let score_y = 10;
+            let size = 30;
+
+            screenwriter().clear_score(score_x, score_y, size);
+            draw_score(left_score, score_x, score_y, size);
             BALL_X = screenwriter().width() / 2;
             BALL_Y = screenwriter().height() / 2;
             BALL_SPEED_X = -5;
             BALL_SPEED_Y = -3;
+            if left_score >= 3 {
+                GAME_STATE.store(1, Ordering::Relaxed);
+            }
         } else {
-            // Update ball position horizontally
             BALL_X = new_ball_x as usize;
 
-            // Update ball position vertically with improved boundary checks
             if new_ball_y < 0 {
                 BALL_Y = 0;
                 BALL_SPEED_Y = -BALL_SPEED_Y; // Bounce downward
@@ -205,6 +241,24 @@ fn tick() {
 
 fn key(key: DecodedKey) {
     unsafe {
+        if GAME_STATE.load(Ordering::Relaxed) == 1 {
+            if let DecodedKey::Unicode('r') = key {
+                // Reset game state
+                LEFT_SCORE.store(0, Ordering::Relaxed);
+                RIGHT_SCORE.store(0, Ordering::Relaxed);
+                BALL_X = screenwriter().width() / 2;
+                BALL_Y = screenwriter().height() / 2;
+                BALL_SPEED_X = 5;
+                BALL_SPEED_Y = 3;
+                PADDLE_LEFT = 100;
+                PADDLE_RIGHT = 500;
+                GAME_STATE.store(0, Ordering::Relaxed);
+                screenwriter().clear();
+                start();
+            }
+            return;
+        }
+
         match key {
             DecodedKey::Unicode(c) if c == 'W' || c == 'w' => {
                 if PADDLE_LEFT > 25 {
@@ -212,7 +266,7 @@ fn key(key: DecodedKey) {
                 }
             }
             DecodedKey::Unicode(c) if c == 'S' || c == 's' => {
-                if PADDLE_LEFT + 80 < screenwriter().height() {
+                if PADDLE_LEFT + 75 < screenwriter().height() {
                     PADDLE_LEFT += 25;
                 }
             }
@@ -222,7 +276,7 @@ fn key(key: DecodedKey) {
                 }
             }
             DecodedKey::RawKey(KeyCode::ArrowDown) => {
-                if PADDLE_RIGHT + 80 < screenwriter().height() {
+                if PADDLE_RIGHT + 75 < screenwriter().height() {
                     PADDLE_RIGHT += 25;
                 }
             }

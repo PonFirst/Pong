@@ -147,6 +147,139 @@ impl ScreenWriter {
         let _ = unsafe { ptr::read_volatile(&self.framebuffer[byte_offset]) };
     }
 
+    pub fn draw_zero(&mut self, x: usize, y: usize, size: usize) {
+        let thickness = size / 5;
+    
+        // Draw the top horizontal line
+        for dx in 0..size {
+            for t in 0..thickness {
+                screenwriter().draw_pixel(x + dx, y + t, 255, 255, 255);
+            }
+        }
+    
+        // Draw the bottom horizontal line
+        for dx in 0..size {
+            for t in 0..thickness {
+                screenwriter().draw_pixel(x + dx, y + size - thickness + t, 255, 255, 255);
+            }
+        }
+    
+        // Draw the left vertical line
+        for dy in 0..size {
+            for t in 0..thickness {
+                screenwriter().draw_pixel(x + t, y + dy, 255, 255, 255);
+            }
+        }
+    
+        // Draw the right vertical line
+        for dy in 0..size {
+            for t in 0..thickness {
+                screenwriter().draw_pixel(x + size - thickness + t, y + dy, 255, 255, 255);
+            }
+        }
+    }
+    
+    pub fn draw_one(&mut self, x: usize, y: usize, size: usize) {
+        let thickness = size / 5;
+    
+        for dy in 0..size {
+            for t in 0..thickness {
+                screenwriter().draw_pixel(x + size / 2 + t, y + dy, 255, 255, 255);
+            }
+        }
+    }
+    
+    pub fn draw_two(&mut self, x: usize, y: usize, size: usize) {
+        let thickness = size / 5;
+    
+        // Top horizontal line
+        for dx in 0..size {
+            for t in 0..thickness {
+                screenwriter().draw_pixel(x + dx, y + t, 255, 255, 255);
+            }
+        }
+
+        // Right vertical line
+        let vertical_height = size / 2;
+        for dy in 0..vertical_height {
+            for dx in 0..thickness {
+                screenwriter().draw_pixel(x + size - thickness + dx, y + dy, 255, 255, 255);
+            }
+        }
+    
+        // Middle horizontal line
+        for dx in 0..size {
+            for t in 0..thickness {
+                screenwriter().draw_pixel(x + dx, y + size / 2 - thickness / 2 + t, 255, 255, 255);
+            }
+        }
+    
+        // Bottom horizontal line
+        for dx in 0..size {
+            for t in 0..thickness {
+                screenwriter().draw_pixel(x + dx, y + size - thickness + t, 255, 255, 255);
+            }
+        }
+    
+        // Draw the bottom-left vertical line
+        for dy in 0..size / 2 {
+            for t in 0..thickness {
+                screenwriter().draw_pixel(x + t, y + size / 2 + dy, 255, 255, 255);
+            }
+        }
+    }
+
+    pub fn draw_three(&mut self, x: usize, y: usize, size: usize) {
+        let thickness = size / 5;
+    
+        // Top horizontal line
+        for dx in 0..size {
+            for t in 0..thickness {
+                screenwriter().draw_pixel(x + dx, y + t, 255, 255, 255);
+            }
+        }
+    
+        // Middle horizontal line
+        for dx in 0..size {
+            for t in 0..thickness {
+                screenwriter().draw_pixel(x + dx, y + size / 2 - thickness / 2 + t, 255, 255, 255);
+            }
+        }
+    
+        // Bottom horizontal line
+        for dx in 0..size {
+            for t in 0..thickness {
+                screenwriter().draw_pixel(x + dx, y + size - thickness + t, 255, 255, 255);
+            }
+        }
+    
+        // Right vertical line (upper half)
+        for dy in 0..size / 2 {
+            for t in 0..thickness {
+                screenwriter().draw_pixel(x + size - thickness + t, y + dy, 255, 255, 255);
+            }
+        }
+    
+        // Right vertical line (lower half)
+        for dy in 0..size / 2 {
+            for t in 0..thickness {
+                screenwriter().draw_pixel(x + size - thickness + t, y + size / 2 + dy, 255, 255, 255);
+            }
+        }
+    }
+
+    pub fn clear_score(&mut self, x: usize, y: usize, size: usize) {
+        let width = size;  // Total pixel width of the digit
+        let height = size; // Total pixel height of the digit
+        for dx in 0..width {
+            for dy in 0..height {
+                self.draw_pixel(x + dx, y + dy, 0, 0, 0); // Clear with black
+            }
+        }
+    }
+    
+    
+
     pub fn set_position(&mut self, x: usize, y: usize) {
         self.x_pos = x;
         self.y_pos = y;
